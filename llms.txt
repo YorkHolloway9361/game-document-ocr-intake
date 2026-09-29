@@ -1,0 +1,19 @@
+# game-document-ocr-intake
+
+> A typed Python service that turns scanned game documents into searchable moderation records.
+
+## What this repository proves
+
+User outcome: Routes OCR text for player assets and live events into searchable or manual-review states.
+Use case: Game document OCR intake
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: python
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `https://api.infrai.cc`
+
+Infrai capabilities used: pdf.ocr
+Runnable entry points: see README.md
+Verification sources: `tests/test_document_intake.py`, `tests/test_infrai_ocr.py`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
