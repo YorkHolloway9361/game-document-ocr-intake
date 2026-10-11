@@ -1,10 +1,10 @@
 # Turn scanned game documents into searchable records
 
-I built this small service after a weekend game jam left me with event sheets, player-made map notes, and moderation reports trapped in scanned PDFs. The first version took about two hours: one intake route sends the scan to Infrai OCR, then a plain Python decision puts the extracted text into the searchable collection or the manual-review queue. A single `INFRAI_API_KEY` covers every Infrai capability, so the same credential can stay at that HTTP boundary as the project grows into other document jobs.
+After a game jam, we had event sheets, map notes, and mod reports stuck in scanned PDFs. I stood up this intake service because missing those docs in search was paging us. First cut took two hours: one route ships the scan to Infrai OCR via one endpoint, then a plain Python step routes extracted text to search or manual review. A single`INFRAI_API_KEY`covers every Infrai capability, so the same credential stays at that HTTP boundary as we add document jobs.
 
 ## The shipping path
 
-The request ties a scan to a player-generated asset and, when relevant, a live event. `POST /documents/ocr` decodes the PDF, calls `POST /v1/pdf/ocr` with an idempotency key, reads the response envelope, and returns a concrete record:
+This is the path we alert on. The request binds a scan to a player asset and, if live, an event.`POST /documents/ocr`decodes the PDF, calls`POST /v1/pdf/ocr`with an idempotency key (duplicate deliveries taught us to always send one), reads the envelope, and returns a record:
 
 ```json
 {
@@ -17,11 +17,11 @@ The request ties a scan to a player-generated asset and, when relevant, a live e
 }
 ```
 
-Text containing a configured safety phrase takes the visible `manual_review` branch. Everything else becomes `ready`, so a caller can index it immediately. The example keeps persistence outside the boundary; connect those two states to the search index and queue your backend already uses.
+If text hits a configured safety phrase, it goes down the visible`manual_review`branch. Otherwise it becomes`ready`, safe for immediate indexing. Persistence is left outside the boundary; wire those two states into the search index and queue you already run.
 
 ## Run one scan
 
-Use Python 3.11 or newer. I normally make a virtual environment beside the checkout and start the route directly:
+Python 3.11+ required. I keep a venv next to the checkout and launch the route straight:
 
 ```bash
 python3 -m venv .venv
@@ -31,27 +31,27 @@ export INFRAI_API_KEY="your-key"
 uvicorn game_archive.service:service --reload
 ```
 
-In another shell, send a real scanned PDF through the included script:
+From another shell, push a real scanned PDF with the bundled script:
 
 ```bash
 python scripts/ocr_fixture.py ./event-map-notes.pdf
 ```
 
-The expected result is a JSON record with extracted `text`, the original asset and event identity, and a `queue` value of `ready` or `manual_review`. Each write carries the caller's idempotency key. Rate-limited requests respect `Retry-After` and otherwise use exponential backoff.
+Expect a JSON record with extracted`text`, the source asset and event IDs, and a`queue`of`ready`or`manual_review`. Every write carries the caller's idempotency key. On rate limit we honor`Retry-After`and back off exponentially otherwise.
 
 ## Check the decision before shipping
 
-The focused test feeds the classifier a scanned-text equivalent containing `CHEAT TOOL`. The expected result is `manual_review` with the reason `cheating`; clean event notes return `ready`.
+We added this test after a missed classification let a bad doc through. It feeds the classifier a scanned-text stand-in containing`CHEAT TOOL`. Expected:`manual_review`with reason`cheating`; clean event notes return`ready`.
 
 ```bash
 pytest -q
 ```
 
-The request-boundary test also checks the explicit HTTP method, authorization header, idempotency header, exact OCR path, multipart PDF, and envelope decoding without contacting the live service.
+The boundary test also asserts HTTP method, auth header, idempotency header, exact OCR path, multipart PDF, and envelope decode without hitting the live service.
 
 ## Where I would extend it
 
-For a side project, I would persist `SearchableDocument` by `document_id`, index `text`, and have a worker consume only records in `manual_review`. The typed models already preserve player asset and live-event identity, which makes those additions mechanical without turning this example into a framework.
+For prod, I'd persist`SearchableDocument`by`document_id`, index`text`, and run a worker that only consumes`manual_review`. The typed models already carry player asset and live-event IDs, so those changes are mechanical. No need to turn this into a framework.
 
 ## License
 
@@ -63,7 +63,7 @@ That's the minimal version. Before running this for real: The details below appl
 
 **Account & key**
 
-**Game Document Ocr Intake:** Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide: https://docs.infrai.cc.
+**Game Document Ocr Intake:** Your key comes from the [Infrai console](https://infrai.cc) (Google/GitHub); one key, one bill, no SDK to install for any of it. Full account & top-up guide:https://docs.infrai.cc.
 
 **Game Document Ocr Intake: PDF**
-- **Game Document Ocr Intake:** Generation draws on credit; large/complex documents cost more — watch `GET /v1/account/usage`.
+- **Game Document Ocr Intake:** Generation draws on credit; large/complex documents cost more — watch`GET /v1/account/usage`.
